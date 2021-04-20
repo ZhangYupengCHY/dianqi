@@ -18,6 +18,8 @@ EXTRACT_VALUES = {'功率': ['功率', '功耗','用电量'], '电源': ['电源
 # 厂家反馈的参数列的关键词,
 CHOOSE_VALUES_TOTAL_SIGN_WORD = {'参数': ['投标', '反馈', '选型','招标']}
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 def init_df(df):
     """
@@ -519,8 +521,9 @@ def modify_path(file_path):
 
 
 if __name__ == '__main__':
-    path1 = r"C:\Users\Administrator\Desktop\chy\提电气资料（环控、动力、FAS、BAS\厂家返\temp\5223--都市工业园站水阀选型--市政院-19.8.2.xlsx"
-    newPth = modify_path(path1)
+    dataBasePath = r"data/提电气资料（环控、动力、FAS、BAS/厂家返/5223--都市工业园站水阀选型--市政院-19.8.2.xls"
+    dataPath = os.path.join(BASE_DIR,dataBasePath)
+    newPth = modify_path(dataPath)
     # # read_merged_excel(path1,sheetName)
     sheetListDf = load_excel(newPth)
     if sheetListDf is not None:
@@ -534,16 +537,6 @@ if __name__ == '__main__':
                 oneChangjiaDf = process_changjia_df(sheetDf)
                 modifyChangjiaDf = pd.concat([modifyChangjiaDf, oneChangjiaDf])
     modifyChangjiaDf = combine_equipment(modifyChangjiaDf)
-    path2 = r"C:\Users\Administrator\Desktop\chy\提电气资料（环控、动力、FAS、BAS\厂家返\temp\523都市工业园站---------多联空调参数表20190707（再次确认参数）23.xlsx"
+    path2BasePath = r"data/提电气资料（环控、动力、FAS、BAS/厂家返/523都市工业园站---------多联空调参数表20190707（再次确认参数）23.xls"
+    path2 = os.path.join(BASE_DIR,path2BasePath)
     combine_system(modifyChangjiaDf,path2)
-
-    # b = re.sub('[(（].*[)）]','',a)
-    # print(b.strip())
-
-    # c = process_changjia_df(df[1])
-    # print(c)
-
-    # importPath = r"C:\Users\Administrator\Desktop\1.xlsx"
-    # df = read_merged_excel(importPath, '返给电气',is_first_row_column=True)
-    # df = combine_equipment(df)
-    # print(1)
