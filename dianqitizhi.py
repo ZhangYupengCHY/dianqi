@@ -1,22 +1,34 @@
 import os
 import re
 import win32com.client as win32
+import sys
+import tkinter as tk
+from tkinter import ttk
 
 import pandas as pd
 import openpyxl
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, NamedStyle
 
+# xl = win32.gencache.EnsureDispatch("Word.Application")
+# print(sys.modules[xl.__module__].__file__)
+
+
 """
 将厂家的excel的返资格式转换为给电气提资的格式
 """
 
+
+
+# todo 添加错误提示等
+
+
 # 设备编号,型号列
 EXTRACT_ITEMS = {'设备编号': ['设备编号'], '设备名称': ['设备名称'], '设备型号': ['设备型号']}
 # 设备参数列
-EXTRACT_VALUES = {'功率': ['功率', '功耗','用电量'], '电源': ['电源', '电压','用电规格','用电']}
+EXTRACT_VALUES = {'功率': ['功率', '功耗', '用电量'], '电源': ['电源', '电压', '用电规格', '用电']}
 # 厂家反馈的参数列的关键词,
-CHOOSE_VALUES_TOTAL_SIGN_WORD = {'参数': ['投标', '反馈', '选型','招标']}
+CHOOSE_VALUES_TOTAL_SIGN_WORD = {'参数': ['投标', '反馈', '选型', '招标']}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -132,7 +144,7 @@ def process_changjia_df(df):
     # 筛选设备编号:设备编号列不含中文
     chooseCol = chooseCol[
         chooseCol['设备编号'].apply(lambda x: not check_contain_chinese(x) if isinstance(x, str) else False)]
-    chooseCol  = chooseCol[chooseCol['设备编号'].apply(lambda x:True if len(x)>1 else False)]
+    chooseCol = chooseCol[chooseCol['设备编号'].apply(lambda x: True if len(x) > 1 else False)]
     chooseCol.drop_duplicates(['设备编号'], keep='first', inplace=True)
     return chooseCol
 
@@ -364,20 +376,17 @@ def combine_equipment(equipmentDf):
     if equipmentQuantity not in equipmentDf.columns:
         equipmentDf[equipmentQuantity] = 1
     else:
-        equipmentDf[equipmentQuantity].fillna(value=1,inplace=True)
-
+        equipmentDf[equipmentQuantity].fillna(value=1, inplace=True)
 
     # 如果设备名称列不存在,则设备名称列
     if equipmentName not in equipmentDf.columns:
         equipmentDf[equipmentName] = ''
     else:
-        equipmentDf[equipmentName].fillna(value='',inplace=True)
-
+        equipmentDf[equipmentName].fillna(value='', inplace=True)
 
     # 如果合计功率不存在,则添加合计功率
     if equipmentPowerSum not in equipmentDf.columns:
         equipmentDf[equipmentPowerSum] = equipmentDf[equipmentPower]
-
 
     # 设备编号的辅助列来判断是不是一个设备型号和端
     equipmentNumSign = '设备编号辅助'
@@ -386,7 +395,7 @@ def combine_equipment(equipmentDf):
                                      for num in equipmentDf[equipmentNum]]
     equipmentNumNum = '设备编号标号'
     equipmentDf[equipmentNumNum] = [None if not isinstance(num, str) else
-                                    None if '-' not in num else num[num.find('-') + 2:].replace('、',',')
+                                    None if '-' not in num else num[num.find('-') + 2:].replace('、', ',')
                                     for num in equipmentDf[equipmentNum]]
     equipmentColumns = [col.strip() for col in equipmentDf.columns]
     equipmentSignDict = {equipmentName: '', equipmentNumSign: '', equipmentPower: '', equipmentPowerSupply: ''}
@@ -403,7 +412,6 @@ def combine_equipment(equipmentDf):
                 break
 
     # 处理前后行特殊字段数值相同,将计算字段相加
-
 
     # 将编号打开
     def openNum(numStr):
@@ -447,7 +455,7 @@ def combine_equipment(equipmentDf):
     for index in equipmentDfIndex:
         # 重新计算设备编号和设备标识编号
         equipmentDf[equipmentNumNum] = [None if not isinstance(num, str) else
-                                        None if '-' not in num else num[num.find('-') + 2:].replace('、',',')
+                                        None if '-' not in num else num[num.find('-') + 2:].replace('、', ',')
                                         for num in equipmentDf[equipmentNum]]
 
         equipmentDf[equipmentNumSign] = [None if not isinstance(num, str) else
@@ -458,7 +466,7 @@ def combine_equipment(equipmentDf):
         firstNumNum = equipmentDf.iloc[index, equipmentValueDict[equipmentNumNum]]
         firstNumNumRange = openNum(firstNumNum)
         equipmentDf.loc[index, equipmentQuantity] = len(firstNumNumRange)
-        equipmentDf.loc[index,equipmentPowerSum] = len(firstNumNumRange) * equipmentDf.loc[index,equipmentPower]
+        equipmentDf.loc[index, equipmentPowerSum] = len(firstNumNumRange) * equipmentDf.loc[index, equipmentPower]
 
         # 最后一行
         if index == equipmentDf.shape[0] - 1:
@@ -487,7 +495,7 @@ def combine_equipment(equipmentDf):
         equipmengQuantityCombine = len(allNumNumRange)
 
         # 合并功率
-        equipmentPowerSumCombine = float(equipmentDf.loc[index, equipmentPower])*equipmengQuantityCombine
+        equipmentPowerSumCombine = float(equipmentDf.loc[index, equipmentPower]) * equipmengQuantityCombine
 
         equipmentDf.loc[index + 1, equipmentNum] = equipmentNumCombine
         equipmentDf.loc[index + 1, equipmentQuantity] = equipmengQuantityCombine
@@ -520,9 +528,43 @@ def modify_path(file_path):
         return trans_xls_2_xlsx(file_path)
 
 
-if __name__ == '__main__':
-    dataBasePath = r"data/提电气资料（环控、动力、FAS、BAS/厂家返/5223--都市工业园站水阀选型--市政院-19.8.2.xls"
-    dataPath = os.path.join(BASE_DIR,dataBasePath)
+
+def is_file_exist(filePath):
+    return os.path.exists(filePath)
+
+def is_file(filePath):
+    return os.path.isfile(filePath)
+
+def is_excel(filePath):
+    return os.path.splitext(filePath)[1].lower() in ['.xls','.xlsx']
+
+
+def main_calc():
+    """主要的计算函数"""
+
+    choosedAddress = addressEntered.get()
+
+    if not is_file(choosedAddress):
+        showtxt = f'{choosedAddress}不是有效的路径,请输入有效的路径'
+        lab3.insert('insert', showtxt + '\n')
+        lab3.update()
+        return
+    if not is_file_exist(choosedAddress):
+        showtxt = f'{choosedAddress}路径不存在,请输入存在的路径.'
+        lab3.insert('insert', showtxt + '\n')
+        lab3.update()
+        return
+    if not is_excel(choosedAddress):
+        showtxt = f'{choosedAddress}不是excel文件,请输入excel路径.'
+        lab3.insert('insert', showtxt + '\n')
+        lab3.update()
+        return
+
+
+    dataPath = choosedAddress
+    dirPath = os.path.dirname(dataPath)
+    basePath = os.path.basename(dataPath)
+    basePathName,fileType = os.path.splitext(basePath)
     newPth = modify_path(dataPath)
     # # read_merged_excel(path1,sheetName)
     sheetListDf = load_excel(newPth)
@@ -537,6 +579,51 @@ if __name__ == '__main__':
                 oneChangjiaDf = process_changjia_df(sheetDf)
                 modifyChangjiaDf = pd.concat([modifyChangjiaDf, oneChangjiaDf])
     modifyChangjiaDf = combine_equipment(modifyChangjiaDf)
-    path2BasePath = r"data/提电气资料（环控、动力、FAS、BAS/厂家返/523都市工业园站---------多联空调参数表20190707（再次确认参数）23.xls"
-    path2 = os.path.join(BASE_DIR,path2BasePath)
-    combine_system(modifyChangjiaDf,path2)
+    path2BasePath = f'{basePathName} 确认表.xlsx'
+    path2 = os.path.join(dirPath, path2BasePath)
+    if is_file_exist(path2):
+        os.remove(path2)
+    combine_system(modifyChangjiaDf, path2)
+
+    lab3.delete(0.0, tk.END)
+    choosedAddress = addressEntered.get()
+    # print("Month %s,Processing..." % month_flag)
+    showtxt = "完成,存储在%s中" % path2
+    lab3.insert('insert', showtxt + '\n')
+    lab3.update()
+
+
+if __name__ == '__main__':
+    """显示主窗口"""
+
+    win = tk.Tk()  # 创建TK对象
+    win.title("电气提资")  # 添加标题
+
+    ttk.Label(win, text="Folder Address:").grid(column=0, row=1)  # 添加一个标签，并将其列设置为0，行设置为0
+
+    # Address 文本框
+    address = tk.StringVar()  # StringVar是Tk库内部定义的字符串变量类型，在这里用于管理部件上面的字符；不过一般用在按钮button上。改变StringVar，按钮上的文字也随之改变。
+    # addressEntered = ttk.Entry(win, width=40,textvariable=address)  # 创建一个文本框，定义长度为12个字符长度，并且将文本框中的内容绑定到上一句定义的name变量上，方便clickme调用
+    addressEntered = ttk.Entry(win, width=20,
+                               textvariable=address)  # 创建一个文本框，定义长度为12个字符长度，并且将文本框中的内容绑定到上一句定义的name变量上，方便clickme调用
+    addressEntered.grid(column=1, row=1)  # 设置其在界面中出现的位置  column代表列   row 代表行
+    addressEntered.focus()  # 当程序运行时,光标默认会出现在该文本框中
+
+    # 提示信息 Text
+    tip = tk.Label(win, background='seashell', foreground='red',
+                   text='提资地址')
+    tip.grid(column=1, row=2)
+
+    # 按钮
+    action = ttk.Button(win, text="Ready? Go!",
+                        command=main_calc)  # 创建一个按钮, text：显示按钮上面显示的文字, command：当这个按钮被点击之后会调用command函数
+    action.grid(column=2, row=1)  # 设置其在界面中出现的位置  column代表列   row 代表行
+
+    # 输出框
+    global lab3
+    showtxt = tk.StringVar()
+    lab3 = tk.Text(win, fg='blue')
+    # lab3 = tk.Label(win,textvariable = showtxt,height=10, width=50,fg='blue',bg='yellow')
+    lab3.grid(row=3, column=0, columnspan=3)
+
+    win.mainloop()
