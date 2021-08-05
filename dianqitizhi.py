@@ -10,6 +10,8 @@ import openpyxl
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, NamedStyle
 
+import public_function
+
 # xl = win32.gencache.EnsureDispatch("Word.Application")
 # print(sys.modules[xl.__module__].__file__)
 
@@ -18,15 +20,13 @@ from openpyxl.styles import Font, Alignment, NamedStyle
 将厂家的excel的返资格式转换为给电气提资的格式
 """
 
-
-
-# todo 添加错误提示等
-
-
 # 设备编号,型号列
 EXTRACT_ITEMS = {'设备编号': ['设备编号'], '设备名称': ['设备名称'], '设备型号': ['设备型号']}
 # 设备参数列
-EXTRACT_VALUES = {'功率': ['功率', '功耗', '用电量'], '电源': ['电源', '电压', '用电规格', '用电']}
+# 暂时只选取含有功率的列
+# EXTRACT_VALUES = {'功率': ['功率', '功耗', '用电量'], '电源': ['电源', '电压', '用电规格', '用电']}
+# todo  识别功率的字段
+EXTRACT_VALUES = {'功率': ['制冷额定功率'], '电源': ['电源', '电压', '用电规格', '用电']}
 # 厂家反馈的参数列的关键词,
 CHOOSE_VALUES_TOTAL_SIGN_WORD = {'参数': ['投标', '反馈', '选型', '招标']}
 
@@ -96,7 +96,7 @@ def check_contain_chinese(check_str):
 
 def process_changjia_df(df):
     """
-    处理厂家的df
+    处理厂家的df:筛选出需要的
     :param df:
     :return:
     """
@@ -105,6 +105,8 @@ def process_changjia_df(df):
 
     # 初始化处理厂家文件内容:1.删除空白值,填充空值
     processedDf = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+    processedDf = processedDf.applymap(
+        lambda x: public_function.CellStr2Number(x).plusOrMinus() if isinstance(x, str) else x)
     processedDf.fillna(value='', inplace=True)
     # 提取内容
     # todo 后面需要加入类别转换判断
@@ -131,7 +133,8 @@ def process_changjia_df(df):
             chooseCol = pd.concat([chooseCol, extentColDf], axis=1)
             continue
 
-        if (chooseValuesTotalSignWord in colSeries.values) and (extractValuesSignWord & set(colSeries.values) != set()):
+        if (chooseValuesTotalSignWord == colSeries.values[0]) and (
+                extractValuesSignWord & set(colSeries.values[:2]) != set()):
             colName = list(extractValuesSignWord & set(colSeries.values))[0]
             extentColDf = pd.DataFrame([colSeries]).T
             extentColDf.columns = [colName]
@@ -323,7 +326,7 @@ def combine_system(biddingSystemDf, exportPath):
 
         # 多联机系统设备标题
         workSheet.merge_cells(f'{startColumnsName}{nowRow}:{endColumnsName}{nowRow}')
-        workSheet.cell(nowRow, 1).value = '多联机系统设备标题'
+        workSheet.cell(nowRow, 1).value = '多联机系统设备'
         workSheet.cell(nowRow, 1).style = headerCellStyle
         nowRow += 1
 
@@ -505,6 +508,7 @@ def combine_equipment(equipmentDf):
     # 删除行
     equipmentDf = equipmentDf.drop(index=dropIndex)
 
+
     # 删除负责列
     del equipmentDf[equipmentNumSign]
     del equipmentDf[equipmentNumNum]
@@ -528,15 +532,16 @@ def modify_path(file_path):
         return trans_xls_2_xlsx(file_path)
 
 
-
 def is_file_exist(filePath):
     return os.path.exists(filePath)
+
 
 def is_file(filePath):
     return os.path.isfile(filePath)
 
+
 def is_excel(filePath):
-    return os.path.splitext(filePath)[1].lower() in ['.xls','.xlsx']
+    return os.path.splitext(filePath)[1].lower() in ['.xls', '.xlsx']
 
 
 def main_calc():
@@ -560,11 +565,10 @@ def main_calc():
         lab3.update()
         return
 
-
     dataPath = choosedAddress
     dirPath = os.path.dirname(dataPath)
     basePath = os.path.basename(dataPath)
-    basePathName,fileType = os.path.splitext(basePath)
+    basePathName, fileType = os.path.splitext(basePath)
     newPth = modify_path(dataPath)
     # # read_merged_excel(path1,sheetName)
     sheetListDf = load_excel(newPth)
@@ -582,7 +586,10 @@ def main_calc():
     path2BasePath = f'{basePathName} 确认表.xlsx'
     path2 = os.path.join(dirPath, path2BasePath)
     if is_file_exist(path2):
-        os.remove(path2)
+        try:
+            os.remove(path2)
+        except:
+            pass
     combine_system(modifyChangjiaDf, path2)
 
     lab3.delete(0.0, tk.END)
